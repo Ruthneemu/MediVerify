@@ -18,3 +18,16 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd mediverify-backend && node server.js"
+
+[[workflows.workflow]]
+name = "Run Frontend"
+author = 35670652
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd mediverify-frontend && npm start"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
