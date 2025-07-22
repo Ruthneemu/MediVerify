@@ -1,0 +1,20 @@
+modules = ["nodejs-20", "web"]
+run = "node index.js"
+
+[nix]
+channel = "stable-24_05"
+
+[deployment]
+run = ["sh", "-c", "node index.js"]
+
+[workflows]
+runButton = "Run MediVerify Backend"
+
+[[workflows.workflow]]
+name = "Run MediVerify Backend"
+author = 35670652
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd mediverify-backend && node server.js"
