@@ -3,12 +3,13 @@ run = "node index.js"
 
 [nix]
 channel = "stable-24_05"
+packages = ["nano"]
 
 [deployment]
 run = ["sh", "-c", "node index.js"]
 
 [workflows]
-runButton = "Run MediVerify Backend"
+runButton = "Run Frontend"
 
 [[workflows.workflow]]
 name = "Run MediVerify Backend"
@@ -27,6 +28,10 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd mediverify-frontend && npm start"
+
+[[ports]]
+localPort = 3000
+externalPort = 3000
 
 [[ports]]
 localPort = 5000
