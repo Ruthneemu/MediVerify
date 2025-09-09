@@ -51,7 +51,7 @@ async function verifyQrCode(qrCode) {
         supplyChain: [ // Example supply chain data
           `Manufactured by ${data.manufacturer_id} on ${new Date().toLocaleDateString()}`,
           `Distributed to warehouse on ${new Date(Date.now() - 86400000).toLocaleDateString()}`, // 1 day ago
-          `Delivered to pharmacy on ${new Date(Date.now() - 43200000).toLocaleDateString()}`  // 0.5 days ago
+          `Delivered to pharmacy on ${new Date(Date.now() - 43200000).toLocaleDateString()}` // 0.5 days ago
         ],
         isRecalled: isRecalled // Pass the simulated recall status
       }
@@ -299,5 +299,5 @@ module.exports = {
   uploadFileToStorage,
   getExpiringDrugs,
   insertNotification, // Export new function
-  getNotifications    // Export new function
+  getNotifications // Export new function
 };

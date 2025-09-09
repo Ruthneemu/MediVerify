@@ -1,7 +1,7 @@
 // App.js - MediVerify Web Frontend with Notification System
 
-import React, { useState, useEffect } from 'react';
 import { QrReader } from 'react-qr-reader';
+import React, { useState, useEffect, useCallback } from 'react';
 
 function App() {
   // --- Core Verification States ---
@@ -54,77 +54,76 @@ function App() {
   };
 
   // --- Data Fetching Functions (Admin Only) ---
-  const fetchManufacturers = async () => {
-    if (!isAdminLoggedIn || !adminSessionKey) return;
-    setIsLoading(true);
-    setMessage('Fetching manufacturers...');
-    try {
-      const response = await fetch(`${API_BASE_URL}/get-manufacturers`, {
-        headers: { 'X-Admin-Key': adminSessionKey } // Send custom admin key
-      });
-      const result = await response.json();
-      if (response.ok && result.success) {
-        setManufacturers(result.data);
-        setMessage('Manufacturers loaded.');
-      } else {
-        setMessage(`Failed to load manufacturers: ${result.message}`);
-      }
-    } catch (error) {
-      console.error('Error fetching manufacturers:', error);
-      setMessage('Network error while fetching manufacturers.');
-    } finally {
-      setIsLoading(false);
+ // Then memoize each function with useCallback
+const fetchManufacturers = useCallback(async () => {
+  if (!isAdminLoggedIn || !adminSessionKey) return;
+  setIsLoading(true);
+  setMessage('Fetching manufacturers...');
+  try {
+    const response = await fetch(`${API_BASE_URL}/get-manufacturers`, {
+      headers: { 'X-Admin-Key': adminSessionKey }
+    });
+    const result = await response.json();
+    if (response.ok && result.success) {
+      setManufacturers(result.data);
+      setMessage('Manufacturers loaded.');
+    } else {
+      setMessage(`Failed to load manufacturers: ${result.message}`);
     }
-  };
+  } catch (error) {
+    console.error('Error fetching manufacturers:', error);
+    setMessage('Network error while fetching manufacturers.');
+  } finally {
+    setIsLoading(false);
+  }
+}, [isAdminLoggedIn, adminSessionKey, API_BASE_URL]); // Include all dependencies
 
-  const fetchRegisteredDrugs = async () => {
-    if (!isAdminLoggedIn || !adminSessionKey) return;
-    setIsLoading(true);
-    setMessage('Fetching registered drugs...');
-    try {
-      const response = await fetch(`${API_BASE_URL}/get-drugs`, {
-        headers: { 'X-Admin-Key': adminSessionKey } // Send custom admin key
-      });
-      const result = await response.json();
-      if (response.ok && result.success) {
-        setRegisteredDrugs(result.data);
-        setMessage('Registered drugs loaded.');
-      } else {
-        setMessage(`Failed to load drugs: ${result.message}`);
-      }
-    } catch (error) {
-      console.error('Error fetching registered drugs:', error);
-      setMessage('Network error while fetching registered drugs.');
-    } finally {
-      setIsLoading(false);
+const fetchRegisteredDrugs = useCallback(async () => {
+  if (!isAdminLoggedIn || !adminSessionKey) return;
+  setIsLoading(true);
+  setMessage('Fetching registered drugs...');
+  try {
+    const response = await fetch(`${API_BASE_URL}/get-drugs`, {
+      headers: { 'X-Admin-Key': adminSessionKey }
+    });
+    const result = await response.json();
+    if (response.ok && result.success) {
+      setRegisteredDrugs(result.data);
+      setMessage('Registered drugs loaded.');
+    } else {
+      setMessage(`Failed to load drugs: ${result.message}`);
     }
-  };
+  } catch (error) {
+    console.error('Error fetching registered drugs:', error);
+    setMessage('Network error while fetching registered drugs.');
+  } finally {
+    setIsLoading(false);
+  }
+}, [isAdminLoggedIn, adminSessionKey, API_BASE_URL]); // Include all dependencies
 
-  // NEW: Fetch expiring drugs for admin view
-  const fetchExpiringDrugs = async (days) => {
-    if (!isAdminLoggedIn || !adminSessionKey) return;
-    setIsLoading(true);
-    setMessage(`Fetching drugs expiring within ${days} days...`);
-    try {
-      const response = await fetch(`${API_BASE_URL}/get-expiring-drugs?days=${days}`, {
-        headers: { 'X-Admin-Key': adminSessionKey }
-      });
-      const result = await response.json();
-      if (response.ok && result.success) {
-        setExpiringDrugs(result.data);
-        setMessage(`Expiring drugs loaded for ${days} days.`);
-      } else {
-        setExpiringDrugs([]);
-        setMessage(`Failed to load expiring drugs: ${result.message || 'None found or error.'}`);
-      }
-    } catch (error) {
-      console.error('Error fetching expiring drugs:', error);
-      setMessage('Network error while fetching expiring drugs.');
-    } finally {
-      setIsLoading(false);
+const fetchExpiringDrugs = useCallback(async (days) => {
+  if (!isAdminLoggedIn || !adminSessionKey) return;
+  setIsLoading(true);
+  setMessage(`Fetching drugs expiring within ${days} days...`);
+  try {
+    const response = await fetch(`${API_BASE_URL}/get-expiring-drugs?days=${days}`, {
+      headers: { 'X-Admin-Key': adminSessionKey }
+    });
+    const result = await response.json();
+    if (response.ok && result.success) {
+      setExpiringDrugs(result.data);
+      setMessage(`Expiring drugs loaded for ${days} days.`);
+    } else {
+      setExpiringDrugs([]);
+      setMessage(`Failed to load expiring drugs: ${result.message || 'None found or error.'}`);
     }
-  };
-
+  } catch (error) {
+    console.error('Error fetching expiring drugs:', error);
+    setMessage('Network error while fetching expiring drugs.');
+  } finally {
+    setIsLoading(false);
+  }
+}, [isAdminLoggedIn, adminSessionKey, API_BASE_URL]); // Include all dependencies
 
   // --- Core Verification Functions ---
 
@@ -456,17 +455,17 @@ function App() {
 
   // --- Effects ---
   useEffect(() => {
-    if (isAdminLoggedIn) {
-      if (currentPage === 'view-manufacturers') {
-        fetchManufacturers();
-      } else if (currentPage === 'view-drugs') {
-        fetchRegisteredDrugs();
-      } else if (currentPage === 'view-expiring-drugs') {
-        fetchExpiringDrugs(expiryThresholdDays);
-      }
+  if (isAdminLoggedIn) {
+    if (currentPage === 'view-manufacturers') {
+      fetchManufacturers();
+    } else if (currentPage === 'view-drugs') {
+      fetchRegisteredDrugs();
+    } else if (currentPage === 'view-expiring-drugs') {
+      fetchExpiringDrugs(expiryThresholdDays);
     }
-  }, [currentPage, isAdminLoggedIn, adminSessionKey, expiryThresholdDays]);
-
+  }
+}, [currentPage, isAdminLoggedIn, adminSessionKey, expiryThresholdDays, 
+    fetchManufacturers, fetchRegisteredDrugs, fetchExpiringDrugs]); // Added the functions to dependencies
   // Effect to load scan history from Supabase on component mount or page change to scan-history
   useEffect(() => {
     if (currentPage === 'scan-history') {
