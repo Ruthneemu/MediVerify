@@ -10,7 +10,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [cameraError, setCameraError] = useState(null);
   const [manualQrInput, setManualQrInput] = useState('');
-  const [scanAttempts, setScanAttempts] = useState(0); // Track scan attempts
+  const [scanAttempts, setScanAttempts] = useState(0);
 
   // --- AI Verification States ---
   const [selectedFile, setSelectedFile] = useState(null);
@@ -174,7 +174,6 @@ function App() {
       setScanResult(result.text);
       setManualQrInput(result.text);
       handleVerify(result.text);
-      // Reset scan attempts on successful scan
       setScanAttempts(0);
       setCameraError(null);
     }
@@ -186,12 +185,9 @@ function App() {
       } else if (error.name === "NotFoundError") {
         setCameraError("No camera device found on this device.");
       } else {
-        // Handle QR detection errors
         console.error('QR Reader specific error:', error);
-        // Increment scan attempts
         setScanAttempts(prev => prev + 1);
 
-        // After 3 failed attempts, show a helpful message
         if (scanAttempts >= 2) {
           setCameraError("Having trouble detecting the QR code? Please ensure good lighting, steady hand, and that the QR code is clearly visible. You can also try manual entry.");
         }
@@ -209,7 +205,6 @@ function App() {
     setFacingMode(prevMode => (prevMode === 'environment' ? 'user' : 'environment'));
     setMessage(`Switched to ${facingMode === 'environment' ? 'front' : 'back'} camera.`);
     setCameraError(null);
-    // Reset scan attempts when switching cameras
     setScanAttempts(0);
   };
 
@@ -709,9 +704,571 @@ function App() {
           </>
         );
 
-      // ... (rest of the renderContent function remains the same)
-      // For brevity, I've omitted the other cases (scan-history, report-counterfeit, etc.)
-      // as they don't require changes for this QR scanning improvement.
+      case 'scan-history':
+        return (
+          <section className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg md:max-w-2xl mb-8 border-b-4 border-yellow-500">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">Your Scan History</h2>
+            {scanHistory.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                  <thead>
+                    <tr className="bg-gray-100 text-left text-gray-600 uppercase text-sm leading-normal">
+                      <th className="py-3 px-6 border-b border-gray-200">Time</th>
+                      <th className="py-3 px-6 border-b border-gray-200">QR Code</th>
+                      <th className="py-3 px-6 border-b border-gray-200">Drug Name</th>
+                      <th className="py-3 px-6 border-b border-gray-200">Status</th>
+                      <th className="py-3 px-6 border-b border-gray-200">Recall</th>
+                      <th className="py-3 px-6 border-b border-gray-200">Expiring Soon</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-gray-700 text-sm font-light">
+                    {scanHistory.map((scan) => (
+                      <tr key={scan.id} className="border-b border-gray-200 hover:bg-gray-50">
+                        <td className="py-3 px-6 text-left whitespace-nowrap">{scan.scanned_at ? new Date(scan.scanned_at).toLocaleString() : 'N/A'}</td>
+                        <td className="py-3 px-6 text-left break-all">{scan.qr_code}</td>
+                        <td className="py-3 px-6 text-left">{scan.drug_name || 'N/A'}</td>
+                        <td className="py-3 px-6 text-left">
+                          <span className={`font-bold ${scan.status.toLowerCase().includes('authentic') ? 'text-green-600' : 'text-red-600'}`}>
+                            {scan.status.toUpperCase()}
+                          </span>
+                        </td>
+                         <td className="py-3 px-6 text-left">
+                            {scan.is_recalled ? <span className="text-red-600 font-bold">YES</span> : 'No'}
+                        </td>
+                        <td className="py-3 px-6 text-left">
+                            {scan.expiry_date && isExpiringSoon(scan.expiry_date) ? <span className="text-orange-600 font-bold">YES</span> : 'No'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-gray-600 text-center">No scan history yet. Verify a drug to see it here!</p>
+            )}
+            <button
+              onClick={() => setCurrentPage('verify')}
+              className="mt-6 w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out shadow-md"
+            >
+              Back to Verification
+            </button>
+          </section>
+        );
+
+      case 'report-counterfeit':
+        return (
+          <section className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg md:max-w-xl mb-8 border-b-4 border-red-500">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">Report Suspected Counterfeit</h2>
+            <p className="text-gray-600 text-center mb-6">Help us fight fake drugs by reporting suspicious products.</p>
+            <form onSubmit={handleReportCounterfeit}>
+              <div className="mb-4">
+                <label htmlFor="reportQrCode" className="block text-gray-700 text-lg font-semibold mb-2">QR Code (if available):</label>
+                <input
+                  type="text"
+                  id="reportQrCode"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                  placeholder="e.g., MEDIVERIFY-DRUG-XYZ-789"
+                  value={reportCounterfeitData.qrCode}
+                  onChange={(e) => setReportCounterfeitData({ ...reportCounterfeitData, qrCode: e.target.value })}
+                />
+              </div>
+              <div className="mb-4">
+                <label htmlFor="reportDescription" className="block text-gray-700 text-lg font-semibold mb-2">Description of Suspicion:</label>
+                <textarea
+                  id="reportDescription"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                  rows="4"
+                  placeholder="e.g., Packaging looks off, unusual smell, no effect after taking."
+                  value={reportCounterfeitData.description}
+                  onChange={(e) => setReportCounterfeitData({ ...reportCounterfeitData, description: e.target.value })}
+                  required
+                ></textarea>
+              </div>
+              <div className="mb-6">
+                <label htmlFor="reportContact" className="block text-gray-700 text-lg font-semibold mb-2">Your Contact Info (Optional):</label>
+                <input
+                  type="text"
+                  id="reportContact"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                  placeholder="Email or Phone (e.g., your@example.com)"
+                  value={reportCounterfeitData.contact}
+                  onChange={(e) => setReportCounterfeitData({ ...reportCounterfeitData, contact: e.target.value })}
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out shadow-md"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Submitting...
+                  </span>
+                ) : (
+                  'Submit Report'
+                )}
+              </button>
+            </form>
+            <button
+              onClick={() => setCurrentPage('verify')}
+              className="mt-4 w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out shadow-md"
+            >
+              Back to Verification
+            </button>
+          </section>
+        );
+
+      case 'notifications':
+        return (
+          <section className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg md:max-w-2xl mb-8 border-b-4 border-blue-500">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">Notifications</h2>
+            {notifications.length > 0 ? (
+              <div className="space-y-4">
+                {notifications.map((notification) => (
+                  <div
+                    key={notification.id}
+                    className={`p-4 rounded-lg shadow-sm flex items-start space-x-3 ${
+                      notification.is_read ? 'bg-gray-100 text-gray-700' : 'bg-blue-50 text-blue-900 font-semibold border border-blue-200'
+                    }`}
+                  >
+                    <div className="flex-shrink-0">
+                      {notification.type === 'recall_alert' && (
+                        <svg className="h-6 w-6 text-red-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path></svg>
+                      )}
+                    </div>
+                    <div className="flex-grow">
+                      <p className="text-sm">{notification.message}</p>
+                      {notification.related_qr_code && (
+                        <p className="text-xs text-gray-500 mt-1">QR: {notification.related_qr_code}</p>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">
+                        {new Date(notification.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                    {!notification.is_read && (
+                      <button
+                        onClick={() => markNotificationAsRead(notification.id)}
+                        className="flex-shrink-0 ml-4 px-3 py-1 bg-white text-blue-600 border border-blue-600 rounded-full text-xs font-semibold hover:bg-blue-100 transition duration-200"
+                      >
+                        Mark as Read
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-600 text-center">No new notifications.</p>
+            )}
+            <button
+              onClick={() => setCurrentPage('verify')}
+              className="mt-6 w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out shadow-md"
+            >
+              Back to Verification
+            </button>
+          </section>
+        );
+
+      case 'admin-login':
+        return (
+          <section className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg md:max-w-xl mb-8 border-b-4 border-orange-500">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">Admin Login</h2>
+            <form onSubmit={handleAdminLogin}>
+              <div className="mb-4">
+                <label htmlFor="username" className="block text-gray-700 text-lg font-semibold mb-2">Username:</label>
+                <input
+                  type="text"
+                  id="username"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  value={adminUsername}
+                  onChange={(e) => setAdminUsername(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="mb-6">
+                <label htmlFor="password" className="block text-gray-700 text-lg font-semibold mb-2">Password:</label>
+                <input
+                  type="password"
+                  id="password"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out shadow-md"
+              >
+                Login
+              </button>
+            </form>
+          </section>
+        );
+
+      case 'admin-dashboard':
+        return (
+          <section className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg md:max-w-xl mb-8 border-b-4 border-teal-500">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">Admin Dashboard</h2>
+            <p className="text-gray-600 text-center mb-6">Manage manufacturers and drug registrations.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button
+                onClick={() => setCurrentPage('register-manufacturer')}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out shadow-md"
+              >
+                Register Manufacturer
+              </button>
+              <button
+                onClick={() => setCurrentPage('register-drug')}
+                className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out shadow-md"
+              >
+                Register Drug
+              </button>
+              <button
+                onClick={() => setCurrentPage('view-manufacturers')}
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out shadow-md"
+              >
+                View Manufacturers
+              </button>
+              <button
+                onClick={() => setCurrentPage('view-drugs')}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out shadow-md"
+              >
+                View Registered Drugs
+              </button>
+              <button
+                onClick={() => setCurrentPage('view-expiring-drugs')}
+                className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out shadow-md col-span-full"
+              >
+                View Expiring Drugs
+              </button>
+            </div>
+            <button
+              onClick={handleAdminLogout}
+              className="mt-6 w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out shadow-md"
+            >
+              Logout
+            </button>
+          </section>
+        );
+
+      case 'register-manufacturer':
+        return (
+          <section className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg md:max-w-xl mb-8 border-b-4 border-blue-500">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">Register New Manufacturer</h2>
+            <form onSubmit={handleRegisterManufacturer}>
+              <div className="mb-4">
+                <label htmlFor="mfrId" className="block text-gray-700 text-lg font-semibold mb-2">Manufacturer ID:</label>
+                <input
+                  type="text"
+                  id="mfrId"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={newManufacturer.id}
+                  onChange={(e) => setNewManufacturer({ ...newManufacturer, id: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label htmlFor="mfrName" className="block text-gray-700 text-lg font-semibold mb-2">Manufacturer Name:</label>
+                <input
+                  type="text"
+                  id="mfrName"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={newManufacturer.name}
+                  onChange={(e) => setNewManufacturer({ ...newManufacturer, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label htmlFor="mfrLocation" className="block text-gray-700 text-lg font-semibold mb-2">Location:</label>
+                <input
+                  type="text"
+                  id="mfrLocation"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={newManufacturer.location}
+                  onChange={(e) => setNewManufacturer({ ...newManufacturer, location: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="mb-6">
+                <label htmlFor="mfrContact" className="block text-gray-700 text-lg font-semibold mb-2">Contact Info:</label>
+                <input
+                  type="text"
+                  id="mfrContact"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={newManufacturer.contact}
+                  onChange={(e) => setNewManufacturer({ ...newManufacturer, contact: e.target.value })}
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out shadow-md"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Registering...
+                  </span>
+                ) : (
+                  'Register Manufacturer'
+                )}
+              </button>
+            </form>
+            <button
+              onClick={() => setCurrentPage('admin-dashboard')}
+              className="mt-4 w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out shadow-md"
+            >
+              Back to Dashboard
+            </button>
+          </section>
+        );
+
+      case 'register-drug':
+        return (
+          <section className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg md:max-w-xl mb-8 border-b-4 border-green-500">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">Register New Drug</h2>
+            <form onSubmit={handleRegisterDrug}>
+              <div className="mb-4">
+                <label htmlFor="drugQrCode" className="block text-gray-700 text-lg font-semibold mb-2">QR Code:</label>
+                <input
+                  type="text"
+                  id="drugQrCode"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  value={newDrug.qrCode}
+                  onChange={(e) => setNewDrug({ ...newDrug, qrCode: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label htmlFor="drugName" className="block text-gray-700 text-lg font-semibold mb-2">Drug Name:</label>
+                <input
+                  type="text"
+                  id="drugName"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  value={newDrug.drugName}
+                  onChange={(e) => setNewDrug({ ...newDrug, drugName: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label htmlFor="drugManufacturer" className="block text-gray-700 text-lg font-semibold mb-2">Manufacturer ID:</label>
+                <input
+                  type="text"
+                  id="drugManufacturer"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="e.g., MFR001 (must be an existing manufacturer ID)"
+                  value={newDrug.manufacturer}
+                  onChange={(e) => setNewDrug({ ...newDrug, manufacturer: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label htmlFor="drugBatch" className="block text-gray-700 text-lg font-semibold mb-2">Batch Number:</label>
+                <input
+                  type="text"
+                  id="drugBatch"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  value={newDrug.batchNumber}
+                  onChange={(e) => setNewDrug({ ...newDrug, batchNumber: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label htmlFor="drugExpiry" className="block text-gray-700 text-lg font-semibold mb-2">Expiry Date (YYYY-MM-DD):</label>
+                <input
+                  type="date"
+                  id="drugExpiry"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  value={newDrug.expiryDate}
+                  onChange={(e) => setNewDrug({ ...newDrug, expiryDate: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="mb-6">
+                <label htmlFor="drugDescription" className="block text-gray-700 text-lg font-semibold mb-2">Description:</label>
+                <textarea
+                  id="drugDescription"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  rows="3"
+                  value={newDrug.description}
+                  onChange={(e) => setNewDrug({ ...newDrug, description: e.target.value })}
+                ></textarea>
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out shadow-md"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Registering...
+                  </span>
+                ) : (
+                  'Register Drug'
+                )}
+              </button>
+            </form>
+            <button
+              onClick={() => setCurrentPage('admin-dashboard')}
+              className="mt-4 w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out shadow-md"
+            >
+              Back to Dashboard
+            </button>
+          </section>
+        );
+
+      case 'view-manufacturers':
+        return (
+          <section className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg md:max-w-2xl mb-8 border-b-4 border-purple-500">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">Registered Manufacturers</h2>
+            {manufacturers.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                  <thead>
+                    <tr className="bg-gray-100 text-left text-gray-600 uppercase text-sm leading-normal">
+                      <th className="py-3 px-6 border-b border-gray-200">ID</th>
+                      <th className="py-3 px-6 border-b border-gray-200">Name</th>
+                      <th className="py-3 px-6 border-b border-gray-200">Location</th>
+                      <th className="py-3 px-6 border-b border-gray-200">Contact</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-gray-700 text-sm font-light">
+                    {manufacturers.map((mfr) => (
+                      <tr key={mfr.id} className="border-b border-gray-200 hover:bg-gray-50">
+                        <td className="py-3 px-6 text-left whitespace-nowrap">{mfr.id}</td>
+                        <td className="py-3 px-6 text-left">{mfr.name}</td>
+                        <td className="py-3 px-6 text-left">{mfr.location}</td>
+                        <td className="py-3 px-6 text-left">{mfr.contact || 'N/A'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-gray-600 text-center">No manufacturers registered yet.</p>
+            )}
+            <button
+              onClick={() => setCurrentPage('admin-dashboard')}
+              className="mt-6 w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out shadow-md"
+            >
+              Back to Dashboard
+            </button>
+          </section>
+        );
+
+      case 'view-drugs':
+        return (
+          <section className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg md:max-w-2xl mb-8 border-b-4 border-red-500">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">Registered Drugs</h2>
+            {registeredDrugs.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                  <thead>
+                    <tr className="bg-gray-100 text-left text-gray-600 uppercase text-sm leading-normal">
+                      <th className="py-3 px-6 border-b border-gray-200">QR Code</th>
+                      <th className="py-3 px-6 border-b border-gray-200">Drug Name</th>
+                      <th className="py-3 px-6 border-b border-gray-200">Manufacturer ID</th>
+                      <th className="py-3 px-6 border-b border-gray-200">Batch</th>
+                      <th className="py-3 px-6 border-b border-gray-200">Expiry</th>
+                      <th className="py-3 px-6 border-b border-gray-200">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-gray-700 text-sm font-light">
+                    {registeredDrugs.map((drug, index) => (
+                      <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
+                        <td className="py-3 px-6 text-left whitespace-nowrap">{drug.qr_code}</td>
+                        <td className="py-3 px-6 text-left">{drug.drug_name}</td>
+                        <td className="py-3 px-6 text-left">{drug.manufacturer_id}</td>
+                        <td className="py-3 px-6 text-left">{drug.batch_number}</td>
+                        <td className="py-3 px-6 text-left">{drug.expiry_date}</td>
+                        <td className="py-3 px-6 text-left">
+                          <span className={`font-bold ${drug.status.toLowerCase().includes('authentic') ? 'text-green-600' : 'text-red-600'}`}>
+                            {drug.status.toUpperCase()}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-gray-600 text-center">No drugs registered yet.</p>
+            )}
+            <button
+              onClick={() => setCurrentPage('admin-dashboard')}
+              className="mt-6 w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out shadow-md"
+            >
+              Back to Dashboard
+            </button>
+          </section>
+        );
+
+        case 'view-expiring-drugs':
+            return (
+              <section className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg md:max-w-2xl mb-8 border-b-4 border-orange-500">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">Drugs Expiring Soon</h2>
+                <div className="mb-4 flex items-center justify-center space-x-2">
+                    <label htmlFor="expiryDays" className="text-gray-700 font-semibold">Expiring within (days):</label>
+                    <input
+                        type="number"
+                        id="expiryDays"
+                        min="1"
+                        className="w-20 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-center"
+                        value={expiryThresholdDays}
+                        onChange={(e) => setExpiryThresholdDays(parseInt(e.target.value) || 0)}
+                    />
+                    <button
+                        onClick={() => fetchExpiringDrugs(expiryThresholdDays)}
+                        className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md"
+                    >
+                        Filter
+                    </button>
+                </div>
+                {expiringDrugs.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                      <thead>
+                        <tr className="bg-gray-100 text-left text-gray-600 uppercase text-sm leading-normal">
+                          <th className="py-3 px-6 border-b border-gray-200">QR Code</th>
+                          <th className="py-3 px-6 border-b border-gray-200">Drug Name</th>
+                          <th className="py-3 px-6 border-b border-gray-200">Manufacturer ID</th>
+                          <th className="py-3 px-6 border-b border-gray-200">Expiry Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-gray-700 text-sm font-light">
+                        {expiringDrugs.map((drug, index) => (
+                          <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
+                            <td className="py-3 px-6 text-left whitespace-nowrap">{drug.qr_code}</td>
+                            <td className="py-3 px-6 text-left">{drug.drug_name}</td>
+                            <td className="py-3 px-6 text-left">{drug.manufacturer_id}</td>
+                            <td className="py-3 px-6 text-left font-bold text-orange-700">{drug.expiry_date}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-gray-600 text-center">No drugs found expiring within {expiryThresholdDays} days.</p>
+                )}
+                <button
+                  onClick={() => setCurrentPage('admin-dashboard')}
+                  className="mt-6 w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out shadow-md"
+                >
+                  Back to Dashboard
+                </button>
+              </section>
+            );
 
       default:
         return null;
