@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@craco/craco": "^7.1.0",
     "@supabase/supabase-js": "^2.52.1",
-    "@tailwindcss/postcss": "^4.1.13",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^12.1.5",
@@ -40,11 +40,7 @@
     ]
   },
   "devDependencies": {
-<<<<<<< HEAD
     "@tailwindcss/postcss": "^4.1.13",
-=======
-    "@craco/craco": "^7.1.0",
->>>>>>> 7affc019e7afed8f9a038d9cf56c6e12c2084adb
     "autoprefixer": "^10.4.21",
     "tailwindcss": "^3.2.7"
   }
